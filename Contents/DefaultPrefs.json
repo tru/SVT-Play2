@@ -1,0 +1,17 @@
+[
+    {
+        "id":"quality",
+        "type":"enum",
+        "label":"Önskad kvalitet",
+        "values":["Högsta", "HD", "Hög", "Medel", "Låg"],
+        "default":"Högsta"
+    },
+
+    {
+        "id":"paginate_depth",
+        "type":"text",
+        "label":"Max sökdjup",
+        "default":"5"
+    }
+
+]

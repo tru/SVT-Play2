@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<site site="http://svtplay.se"
+    plugin="http://svtplay.se/flash/svtplayer.*\.swf"
+    initialState="loading"
+    version="3.1"
+    manualLock="true"
+    >
+
+    <crop x="0" y="0" width="640" height="360"/>
+
+    <state name="loading">
+        <event>
+            <condition>
+                <frameLoaded/>
+            </condition>
+            <action>
+                <lockPlugin/>
+                <goto state="playing"/>
+            </action>
+        </event>
+    </state>
+
+    <state name="playing">
+                <!---
+        <event>
+            <condition>
+                <command name="pause" />
+            </condition>
+            <action>
+                <click x="13" y="373"/>
+                <pause time="10"/>
+                <click x="320" y="180"/>
+                <pause time="10"/>
+                <goto state="paused" />
+            </action>
+        </event>
+                -->
+    </state>
+
+    <state name="paused">
+        <event>
+            <condition>
+                <command name="play" />
+            </condition>
+            <action>
+                <click x="13" y="373"/>
+                <pause time="10"/>
+                <click x="320" y="180"/>
+                <pause time="10"/>
+                <!---
+                -->
+                <goto state="playing" />
+            </action>
+        </event>
+    </state>
+
+</site>
