@@ -8,102 +8,136 @@ class MenuItem:
         self.xmlUrl = None
         self.parent = None
         self.titleId = 0
-        self.description = ""
+        self.duration = 0
+        self.description = None
+        self.type = TYPE_DIR
 
-    def getMediaFunction(self):            
-        return Function(DirectoryItem(listMenu, title=self.title, thumb=self.thumb), menu=self)
-        
+    def getMediaFunction(self):  
+        if (self.type == TYPE_DIR or self.type == TYPE_PROGRAM):
+            Log("directory thumb = %s", self.thumb)
+            
+            return DirectoryObject(key=Callback(listMenu, menu=self), title=self.title, thumb=Callback(GetThumb, url=self.thumb))
+        elif self.type == TYPE_VIDEO:
+            return VideoClipObject(title=self.title,
+                                    duration=int(self.duration),
+                                    thumb=Callback(GetThumb, url=self.thumb),
+                                    tagline=self.description,
+                                    items = [
+                                        MediaObject(
+                                            parts = [PartObject(key=self.xmlUrl)],
+                                            protocols = [Protocol.HTTPMP4Streaming],
+                                            platforms = [ClientPlatform.iOS, ClientPlatform.Android],
+                                            video_codec = VideoCodec.H264,
+                                            audio_codec = AudioCodec.AAC
+                                        )
+                                    ]
+                                )
         
     def parseTeaserList(self, context):
-        return None
-    
+        url = context.xpath('//svtplay:xmllink[@svtplay:type="title/list"]', namespaces=SVTPLAY_RSS_NS)
+        if not url:
+            Log("No match?")
+            return None
+        Log("HELLO: " + url[0].text)
+        return self.xmlUrlList(url[0].text + "?num=100&vformat=m3u8")
+        
     def getVideoContext(self, context):
         videos = context.xpath(".//media:content", namespaces=MEDIA_NS)
+        mp4 = None
+        mp4bitrate = 0.0
         for v in videos:
+            if v.attrib["type"] == 'video/mp4':
+                if v.attrib["url"].startswith("rtmpe://"):
+                    # we can't handle Encrypted shit.
+                    continue
+                if not ("bitrate" in v.attrib):
+                    continue
+                br = float(v.attrib["bitrate"])
+                if br > mp4bitrate:
+                    mp4bitrate = br
+                    mp4 = v
             if v.attrib["type"] == 'application/vnd.apple.mpegurl':
                 return v
-        return None
-    
-    def parseVideoList(self, context):
-    
-        title = context.xpath('/rss/channel/title')[0].text
-        dir = MediaContainer(title=title)
-        items = context.xpath('//item[@svtplay:type="video"]', namespaces=SVTPLAY_NS)
+        
+        Log("No HLS, lets use mp4 with %f bitrate" % mp4bitrate)
+        return mp4
+        
+    def parseList(self, context):
+        retlist = []    
+#        title = context.xpath('/rss/channel/title')[0].text
+        type = TYPE_VIDEO
+        items = context.xpath('//item')
         for i in items:
-            videoTitle = i.xpath('./title')[0].text
-            videoThumb = i.xpath('./media:thumbnail', namespaces=MEDIA_NS)[0].attrib["url"]
-
-            videoContext = self.getVideoContext(i)
-            videoURL = self.getRealURL(videoContext.attrib["url"])
-            if not videoURL:
-                continue
+            itemType = i.attrib[SVTPLAY_RSS_NS_TEXT+"type"]
+            Log("itemType = %s", itemType)
+            if (itemType == 'teaser'):
+                return self.parseTeaserList(context)
+        
+            item = MenuItem()
+            item.parent = self
+            item.title = i.xpath('./title')[0].text
+            thumbcontext = i.xpath('./media:thumbnail', namespaces=MEDIA_NS)
+            if (thumbcontext) :
+                item.thumb = thumbcontext[0].attrib["url"]
             
-            if "duration" in videoContext.attrib:
-                videoDuration = videoContext.attrib["duration"]
+            # check type of the item 
+            if (itemType == "title"):
+                item.type = TYPE_PROGRAM
+                item.titleId = i.xpath('./svtplay:titleId',namespaces=SVTPLAY_RSS_NS)[0].text
+                item.xmlUrl = URL_VIDEO_LIST+item.titleId
+            elif (itemType == 'video'):
+                item.type = TYPE_VIDEO
+                
+                videoContext = self.getVideoContext(i)
+                if not videoContext:
+                    Log("Skipped %s" % item.title)
+                    continue
+                    
+                item.xmlUrl = videoContext.attrib["url"]
+        
+                if "duration" in videoContext.attrib:
+                    item.duration = int(videoContext.attrib["duration"]) * 1000
             else:
-                videoDuration = 0
-            
-            dir.Append(VideoItem(videoURL, title=videoTitle, videoThumb=GetThumb(videoThumb), duration=videoDuration))
-        
-        return dir
-        
-    def getRealURL(self, url):
-        Log("getting m3u8 file: %s", url)
-        try:
-            data = HTTP.Request(url, cacheTime=CACHE_TIME_1DAY).content
-        except:
-            return None
-        lines = data.split('\n')
-        layers = {}
-        for l in lines:
-            if not l.startswith('#EXT-X-STREAM-INF'):
+                Log("broken!")
                 continue
-            b = int(l[l.rfind('=')+1:])
-            layers[b] = lines[lines.index(l)+1]
             
-        high = max(layers.keys())
+            retlist.append(item)
         
-        Log("using %d", high)
-        
-        return layers[high]
-        
-    def xmlUrlList(self):
+        return retlist
+                
+    def xmlUrlList(self, url=None):
+        if not url:
+            url = self.xmlUrl
+            
         try:
-            context = XML.ElementFromURL(self.xmlUrl, errors='ignore')
+            context = XML.ElementFromURL(url, errors='ignore')
         except:
             return MessageContainer("Error", "Couldn't load mainmenu")
             
-        # need to figure out what we are dealing with here
-        ismenu = context.xpath('/rss/channel/svtplay:listType', namespaces=SVTPLAY_NS)
-        if ismenu:
-            if ismenu[0].text == 'pgmMenu':
-                Log("teaserList")
-                return self.parseTeaserList(context)
-            else:
-                Log("don't handle this listtype")
-        else:
-            # videolist then?
-            Log("videoList?")
-            return self.parseVideoList(context)
-            
-        return None
+        return self.parseList(context)
     
-def listMenu(sender, menu):
+def listMenu(menu=None):
+    items = menu.subitems
     if not menu.subitems and menu.xmlUrl:
-        return menu.xmlUrlList()
+        items = menu.xmlUrlList()
 
-    container = MediaContainer(viewGroup='List')
-
+    if items[0].type == TYPE_VIDEO:
+        container = ObjectContainer(view_group='VideoGrid')
+    elif items[0].type == TYPE_PROGRAM:
+        container = ObjectContainer(view_group='ProgramList')
+    else:
+        container = ObjectContainer(view_group='List')
+        
     if menu.parent:
             container.title1 = menu.parent.title
             container.title2 = menu.title
     else:
         container.title1 = menu.title
     
-    for node in menu.subitems:
-        container.Append(node.getMediaFunction())
+    for node in items:
+        container.add(node.getMediaFunction())
     
-    Log("listMenu contains %d subitems", len(menu.subitems))
+    Log("listMenu contains %d subitems", len(items))
     return container
 
 def menuItemsFromContext(context, parent, type='rss'):
@@ -112,13 +146,19 @@ def menuItemsFromContext(context, parent, type='rss'):
         menu = MenuItem()
         menu.parent = parent
         menu.title = subNode.attrib["text"]
+
         if menu.title == "Hjälpmeny" or menu.title == "Sök":
             continue
 #        Log("subitem = %s, parent %s", menu.title, menu.parent.title)
-        if SVTPLAY_NS_TEXT+"thumbnail" in subNode.attrib:
-            menu.thumb = subNode.attrib[SVTPLAY_NSS_TEXT+"thumbnail"]
+
+        thumbnailKey = SVTPLAY_OPML_NS_TEXT+"thumbnail"
+
+        if thumbnailKey in subNode.attrib:
+            menu.thumb = subNode.attrib[SVTPLAY_OPML_NS_TEXT+"thumbnail"]
+
         if "xmlUrl" in subNode.attrib:
             menu.xmlUrl = subNode.attrib["xmlUrl"]
+
         if len(subNode.getchildren()) > 0:
             menu.subitems = menuItemsFromContext(subNode, menu)
         

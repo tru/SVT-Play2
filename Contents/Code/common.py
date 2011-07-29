@@ -10,11 +10,22 @@ CACHE_TIME_1DAY    = 60*60*24
 CACHE_TIME_SHOW = CACHE_TIME_1DAY
 CACHE_TIME_EPISODE = CACHE_TIME_LONG
 
-MEDIA_NS_TEXT = "http://search.yahoo.com/mrss/"
-MEDIA_NS = {"media":MEDIA_NS_TEXT}
-SVTPLAY_NS_TEXT = "http://xml.svtplay.se/ns/playrss"
-SVTPLAY_NS = {"svtplay":SVTPLAY_NS_TEXT}
+TYPE_DIR = "dir"
+TYPE_VIDEO = "video"
+TYPE_PROGRAM = "program"
+
+MEDIA_NS_TEXT = "{http://search.yahoo.com/mrss/}"
+MEDIA_NS = {"media":"http://search.yahoo.com/mrss/"}
+
+SVTPLAY_RSS_NS_TEXT = "{http://xml.svtplay.se/ns/playrss}"
+SVTPLAY_RSS_NS = {"svtplay":"http://xml.svtplay.se/ns/playrss"}
+
+SVTPLAY_OPML_NS_TEXT = "{http://xml.svtplay.se/ns/playopml}"
+SVTPLAY_OPML_NS = {"svtplay":"http://xml.svtplay.se/ns/playopml"}
+
+
 URL_DEVICECONF = "http://svtplay.se/mobil/deviceconfiguration.xml"
+URL_VIDEO_LIST = "http://xml.svtplay.se/v1/video/list/"
 
 def GetThumb(url):
   try:
