@@ -23,6 +23,8 @@ SVTPLAY_RSS_NS = {"svtplay":"http://xml.svtplay.se/ns/playrss"}
 SVTPLAY_OPML_NS_TEXT = "{http://xml.svtplay.se/ns/playopml}"
 SVTPLAY_OPML_NS = {"svtplay":"http://xml.svtplay.se/ns/playopml"}
 
+OPENSEARCH_NS_TEXT = "{http://a9.com/-/spec/opensearch/1.1/}"
+OPENSEARCH_NS = {"opensearch":"http://a9.com/-/spec/opensearch/1.1/"}
 
 URL_DEVICECONF = "http://svtplay.se/mobil/deviceconfiguration.xml"
 URL_VIDEO_LIST = "http://xml.svtplay.se/v1/video/list/"
